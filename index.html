@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cultuur in Arnhem — Micha, Tijn, Justin L. — DH4A</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+  :root{
+    --bg:#f7fafc; --card:#ffffff; --accent:#0b63d6; --muted:#6b7280; --text:#0b2545;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,Arial;
+    background:linear-gradient(180deg,#f7fbff 0%, #f4f6fa 100%);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:20px 28px;
+    background:linear-gradient(90deg,#0b63d6,#7c4dff);
+    color:white;
+  }
+  .container{max-width:1200px;margin:18px auto;padding:0 18px}
+  .intro{
+    background:var(--card);padding:14px;border-radius:12px;
+    box-shadow:0 8px 30px rgba(11,37,83,0.06);
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .grid{display:grid;grid-template-columns:1fr 460px;gap:18px;margin-top:16px}
+  #map{height:680px;border-radius:12px;box-shadow:0 12px 36px rgba(11,37,83,0.06);overflow:hidden}
+  .side{display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--card);padding:12px;border-radius:12px;box-shadow:0 8px 20px rgba(11,37,83,0.06)}
+  .wheel-wrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+  #wheelCanvas{width:420px;height:420px;border-radius:10px;background:transparent}
+  .btn{padding:10px 14px;border-radius:10px;border:0;cursor:pointer;font-weight:700}
+  .btn-spin{background:linear-gradient(90deg,#ff6b6b,#7c4dff);color:#fff}
+  .result{padding:10px;border-radius:8px;border:1px dashed rgba(11,37,83,0.06);background:#fbfdff;text-align:center}
+  .legend{display:flex;flex-direction:column;gap:8px}
+  .legend-row{display:flex;gap:8px;align-items:center}
+  .dot{width:14px;height:14px;border-radius:4px}
+  .places{max-height:360px;overflow:auto;margin-top:8px;padding-right:6px}
+  .placeItem{display:flex;gap:10px;padding:10px;border-radius:10px;align-items:flex-start;border:1px solid rgba(11,37,83,0.03);margin-bottom:8px;background:#fff;cursor:pointer}
+  .placeMeta{font-size:14px}
+  .placeMeta a{color:var(--accent);text-decoration:none}
+  footer{max-width:1200px;margin:18px auto;color:var(--muted);font-size:13px;padding:0 18px}
+  @media (max-width:1000px){
+    .grid{grid-template-columns:1fr;}
+    #map{height:480px}
+    #wheelCanvas{width:340px;height:340px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <div style="font-weight:800;font-size:18px">Micha, Tijn, Justin L. — DH4A</div>
+    <div style="opacity:.9;font-size:13px">CKV — Cultuur in Arnhem • Professioneel & strak</div>
+  </div>
+  <div style="font-size:13px;opacity:.95">Doelgroep: Jongeren — Arnhem</div>
+</header>
+
+<div class="container">
+  <div class="intro">
+    <div>
+      <strong style="font-size:15px">Ontdek Arnhem — interactieve kaart & draairad</strong>
+      <div style="color:var(--muted);margin-top:6px">Klik een marker of lijstitem, of draai het rad om een willekeurige locatie te kiezen.</div>
+    </div>
+    <div style="text-align:right;font-size:13px;color:var(--muted)">Gemaakt door Micha, Tijn, Justin L. — Klas DH4A</div>
+  </div>
+
+  <div class="grid">
+    <!-- Map column -->
+    <div>
+      <div id="map"></div>
+      <div style="display:flex;gap:12px;margin-top:10px;align-items:center">
+        <div style="font-size:13px;color:var(--muted)">Kaart: klik op een marker voor details</div>
+        <button id="fitBtn" class="btn" style="margin-left:auto;background:#eef2ff">Zoom naar alle plekken</button>
+      </div>
+    </div>
+
+    <!-- Side column -->
+    <div class="side">
+      <div class="card wheel-wrap">
+        <div style="font-weight:800">Draairad — Kies een plek</div>
+        <canvas id="wheelCanvas" width="420" height="420"></canvas>
+        <div style="display:flex;gap:10px">
+          <button id="spinBtn" class="btn btn-spin">🎯 Draai het rad</button>
+          <button id="randomBtn" class="btn" style="background:#eef2ff">Willekeurige</button>
+        </div>
+        <div id="spinResult" class="result">Draai het rad om een plek te kiezen — de kaart zoomt naar die plek.</div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:800">Plekken & legenda</div>
+          <div style="color:var(--muted)">24 locaties</div>
+        </div>
+
+        <div class="legend" style="margin-top:10px">
+          <div class="legend-row"><div class="dot" style="background:#3b82f6"></div><div style="font-size:13px;color:var(--muted)">Cultuur / Historie / Musea</div></div>
+          <div class="legend-row"><div class="dot" style="background:#10b981"></div><div style="font-size:13px;color:var(--muted)">Jongeren / Entertainment / Sport</div></div>
+          <div class="legend-row"><div class="dot" style="background:#f59e0b"></div><div style="font-size:13px;color:var(--muted)">Clubs / Cafés / Foodhallen</div></div>
+        </div>
+
+        <div id="placesList" class="places" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>Kaartdata: OpenStreetMap / Nominatim — geocoding live (kleine vertraging mogelijk). Controleer openingstijden op de websites.</footer>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+/* ============================
+   DATA: 24 plekken (B-uitwerking)
+   ============================ */
+const places = [
+  {name:'Openlucht Museum', addr:'Arnhemseweg 5, 6816 SG Arnhem', website:'https://openluchtmuseum.nl', cat:'culture', desc:'Groot openluchtmuseum met historische boerderijen en objecten.'},
+  {name:'Museum Arnhem', addr:'Jansplein 1, 6811 DG Arnhem', website:'https://museumarnhem.nl', cat:'culture', desc:'Kunst en design, wisseltentoonstellingen.'},
+  {name:'Eusebiuskerk', addr:'Eusebiusplein 1, 6811 HS Arnhem', website:'https://eusebius.nl', cat:'culture', desc:'Iconische kerk met torenklimmen voor uitzicht over de stad.'},
+  {name:'Musis Arnhem', addr:'Musisplein 1, 6811 KR Arnhem', website:'https://musis.nl', cat:'culture', desc:'Concertzaal en cultureel centrum voor muziek en podiumkunsten.'},
+  {name:'Rozet Arnhem', addr:'Jansplein 1, 6811 DG Arnhem', website:'https://rozet.nl', cat:'culture', desc:'Bibliotheek en educatief cultuurcentrum met activiteiten.'},
+  {name:'Historisch Museum Arnhem', addr:'Korenmarkt 21, 6811 EG Arnhem', website:'https://historischmuseumarnhem.nl', cat:'culture', desc:'Verhalen en exposities over de stad Arnhem.'},
+  {name:'Sonsbeek Park', addr:'Sonsbeekpark, 6811 Arnhem', website:'NVT', cat:'culture', desc:'Groot park met beelden, vijvers en picknickplekken.'},
+  {name:'Airborne at the Bridge', addr:'John Frostbrug 1, 6811 DM Arnhem', website:'https://airbornemuseum.nl', cat:'culture', desc:'Museum over de Slag om Arnhem en Market Garden.'},
+  {name:'Kasteel Doorwerth', addr:'Kasteellaan 1, 6865 XX Doorwerth', website:'https://kasteleninnederland.nl/kasteel-doorwerth', cat:'culture', desc:'Kasteel met een rijke historie en rondleidingen.'},
+  {name:'Theater Het Hof', addr:'Velperbinnensingel 5, 6828 HN Arnhem', website:'https://theaterhethof.nl', cat:'culture', desc:'Kleinschalig theater met lokale producties.'},
+  {name:'Skatepark De Blauwe Golven', addr:'Rijnkade 1, 6828 Arnhem', website:'https://www.arnhem.nl/skatepark', cat:'youth', desc:'Buiten-skatepark langs de Rijn.'},
+  {name:'Gamehal (Arnhem Centraal)', addr:'Stationsplein, 6811 Arnhem', website:'NVT', cat:'youth', desc:'Gamehal/gamingcorner rond het station (kontroleer Facebook voor actuele info).'},
+  {name:'House of Billiards', addr:'Apeldoornseweg 44, 6814 AB Arnhem', website:'https://houseofbilliards.nl', cat:'youth', desc:'Biljartcentrum met bar en evenementen.'},
+  {name:'Gelredome', addr:'Stadionplein 1, 6825 MC Arnhem', website:'https://gelredome.nl', cat:'youth', desc:'Groot stadion voor concerten en sportevenementen.'},
+  {name:'John Frostbrug', addr:'John Frostbrug, Arnhem', website:'NVT', cat:'youth', desc:'Beroemde brug, historisch symbool van Operatie Market Garden.'},
+  {name:'Pathé Arnhem', addr:'Jansstraat 47, 6811 EK Arnhem', website:'https://www.pathe.nl/bioscopen/pathe-arnhem', cat:'youth', desc:'Bioscoop met de nieuwste films.'},
+  {name:'Indoor Skydive Arnhem', addr:'Nijverheidsweg 10, 6826 EP Arnhem', website:'https://www.indoor-skydive-arnhem.nl', cat:'youth', desc:'Windtunnel voor skydiven zonder vliegtuig.'},
+  {name:'Jump XL / JumpSquare', addr:'Van Oldenbarneveldtstraat 91, 6827 AL Arnhem', website:'https://jumpsquare.com', cat:'youth', desc:'Trampolinepark met activiteiten voor groepen.'},
+  {name:'Bar XO', addr:'Korenmarkt 24, 6811 GV Arnhem', website:'https://www.barxo.nl', cat:'bars', desc:'Cocktailbar in het centrum.'},
+  {name:'Shooters', addr:'Korenmarkt 39, 6811 GW Arnhem', website:'https://www.facebook.com/shootersarnhem', cat:'bars', desc:'Danscafé en club voor jongeren.'},
+  {name:'Bloopers', addr:'Pauwstraat 1, 6811 GK Arnhem', website:'https://bloopers-arnhem.nl', cat:'bars', desc:'Café/club met thema-avonden en DJ\'s.'},
+  {name:'Suikerland', addr:'Drieslag 7, 6832 AM Arnhem', website:'NVT', cat:'bars', desc:'Gezellig lokaal café (kleine locatie).'},
+  {name:'Sugar Hill Arnhem', addr:'Klarendalseweg 192, 6822 GJ Arnhem', website:'https://www.sugarhill.nl', cat:'bars', desc:'Bar en eetgelegenheid in Klarendal.'},
+  {name:'Café Arnhem Noord', addr:'Arnhem Noord', website:'https://www.facebook.com/p/Cafe-Arnhem-Noord-100057486308023/?locale=nl_NL', cat:'bars', desc:'Buurtcafé met lokale sfeer.'}
+];
+
+/* ============================
+   MAP INITIALIZE (Leaflet)
+   ============================ */
+const map = L.map('map').setView([51.9851,5.8987],13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19, attribution:'© OpenStreetMap contributors'
+}).addTo(map);
+
+let markers = [];
+
+/* polite sequential geocoding via Nominatim */
+async function addMarkers() {
+  for (let i=0; i<places.length; i++){
+    const p = places[i];
+    try {
+      // If address contains 'NVT', try using just the name + Arnhem
+      const query = encodeURIComponent((p.addr && p.addr!=='' ) ? (p.addr + ', Arnhem, Nederland') : (p.name + ', Arnhem, Nederland'));
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
+      const data = await res.json();
+      if (data && data[0]) {
+        const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon);
+        const marker = L.marker([lat,lon]).addTo(map);
+        const websiteHtml = p.website && p.website!=='NVT' ? `<a href="${p.website}" target="_blank">${p.website}</a>` : 'NVT';
+        marker.bindPopup(`<b>${p.name}</b><br>${p.addr || ''}<br>${websiteHtml}<br><small style="color:#555">${p.desc || ''}</small>`);
+        markers.push({marker, lat, lon, p});
+      } else {
+        console.warn('Geen geocode gevonden voor:', p.name);
+      }
+    } catch(err){
+      console.warn('Geocode error for', p.name, err);
+    }
+    // delay to be polite to Nominatim
+    await new Promise(res => setTimeout(res, 220));
+  }
+  if (markers.length) map.fitBounds(markers.map(m => [m.lat, m.lon]), {padding:[40,40]});
+}
+addMarkers();
+
+/* ============================
+   RIGHT-HAND LIST & LEGEND
+   ============================ */
+const placesList = document.getElementById('placesList');
+const catColors = {culture:'#3b82f6', youth:'#10b981', bars:'#f59e0b'};
+
+places.forEach((p, idx) => {
+  const el = document.createElement('div');
+  el.className = 'placeItem';
+  el.innerHTML = `
+    <div class="dot" style="background:${catColors[p.cat] || '#999'}"></div>
+    <div class="placeMeta">
+      <strong>${p.name}</strong>
+      <div style="color:var(--muted);font-size:13px">${p.addr}</div>
+      <div style="margin-top:6px"><a href="${p.website!=='NVT'?p.website:'#'}" target="_blank">${p.website}</a></div>
+      <div style="margin-top:6px;color:var(--muted);font-size:13px">${p.desc}</div>
+    </div>
+  `;
+  el.addEventListener('click', async () => {
+    const found = markers.find(m => m.p.name === p.name);
+    if (found) {
+      map.setView([found.lat, found.lon], 15);
+      found.marker.openPopup();
+    } else {
+      try {
+        const q = encodeURIComponent(p.addr + ', Arnhem, Nederland');
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`);
+        const data = await res.json();
+        if (data && data[0]) {
+          map.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 15);
+          L.popup().setLatLng([parseFloat(data[0].lat), parseFloat(data[0].lon)])
+            .setContent(`<b>${p.name}</b><br>${p.addr}<br><a href='${p.website!=='NVT'?p.website:'#'}'>${p.website}</a>`).openOn(map);
+        }
+      } catch(e){ console.warn(e); }
+    }
+  });
+  placesList.appendChild(el);
+});
+
+/* ============================
+   WHEEL (24 segments)
+   ============================ */
+const canvas = document.getElementById('wheelCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height, CX = W/2, CY = H/2, R = 200, Nw = places.length;
+
+/* colors using golden angle spacing */
+const wheelColors = Array.from({length:Nw}, (_,i) => `hsl(${(i*137.5)%360} 70% 52%)`);
+function getLightness(hsl){
+  const m = hsl.match(/(\d+)[^\d]+(\d+)%[^\d]+(\d+)%/);
+  if(m && m[3]) return parseInt(m[3],10);
+  const nums = hsl.match(/\d+/g);
+  return nums && nums.length>=3 ? parseInt(nums[2],10) : 50;
+}
+
+/* draw wheel: text horizontally from outside -> inside */
+function drawWheel(rotation=0){
+  ctx.clearRect(0,0,W,H);
+  for(let i=0;i<Nw;i++){
+    const start = (i/Nw)*2*Math.PI + rotation;
+    const end = ((i+1)/Nw)*2*Math.PI + rotation;
+
+    // draw wedge
+    ctx.beginPath(); ctx.moveTo(CX,CY); ctx.arc(CX,CY,R,start,end); ctx.closePath();
+    ctx.fillStyle = wheelColors[i]; ctx.fill();
+
+    // clip to wedge so text won't overflow
+    ctx.save(); ctx.beginPath(); ctx.moveTo(CX,CY); ctx.arc(CX,CY,R,start,end); ctx.closePath(); ctx.clip();
+
+    const bis = (start+end)/2;
+    // point near outer rim
+    const outerX = CX + Math.cos(bis) * (R * 0.94);
+    const outerY = CY + Math.sin(bis) * (R * 0.94);
+
+    ctx.translate(outerX, outerY);
+    // rotate so x-axis points inward along radius
+    ctx.rotate(bis + Math.PI);
+
+    // choose color for readability
+    const lum = getLightness(wheelColors[i]);
+    ctx.fillStyle = lum > 60 ? '#000' : '#fff';
+    ctx.font = '600 12px Inter, Arial';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+
+    // truncated name
+    const name = places[i].name;
+    const maxChars = 30;
+    const toDraw = name.length > maxChars ? name.slice(0, maxChars-3) + '...' : name;
+
+    // draw text slightly inset from rim
+    ctx.fillText(toDraw, 6, 0);
+
+    ctx.restore();
+  }
+
+  // center circle and pointer
+  ctx.beginPath(); ctx.arc(CX,CY,40,0,2*Math.PI); ctx.fillStyle='#0b2545'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(CX, CY - R - 6); ctx.lineTo(CX-16, CY - R + 26); ctx.lineTo(CX+16, CY - R + 26); ctx.closePath(); ctx.fillStyle='#0b2545'; ctx.fill();
+}
+
+/* initial draw */
+drawWheel(0);
+
+/* get current rotation in degrees */
+function getRotationDeg(el){
+  const st = window.getComputedStyle(el);
+  const tr = st.transform || st.webkitTransform;
+  if(tr && tr !== 'none'){
+    const vals = tr.split('(')[1].split(')')[0].split(',');
+    const a = parseFloat(vals[0]), b = parseFloat(vals[1]);
+    const angle = Math.round(Math.atan2(b,a) * (180/Math.PI));
+    return angle < 0 ? angle + 360 : angle;
+  }
+  return 0;
+}
+
+/* spin using CSS transform (keeps it smooth and re-spinnable) */
+function spinToIndex(idx){
+  const cur = getRotationDeg(canvas);
+  const segDeg = 360 / Nw;
+  const targetRel = (idx * segDeg + segDeg/2);
+  const desiredFinal = (270 - targetRel + 360) % 360;
+  const spins = 4 + Math.floor(Math.random()*4);
+  const final = spins*360 + desiredFinal;
+  canvas.style.transition = 'none';
+  canvas.style.transform = `rotate(${cur}deg)`;
+  canvas.getBoundingClientRect(); // force reflow
+  canvas.style.transition = 'transform 3.2s cubic-bezier(.22,.9,.2,1)';
+  canvas.style.transform = `rotate(${final}deg)`;
+  const handler = ()=>{
+    const fin = final % 360;
+    const angleAtPointer = (270 - fin + 360) % 360;
+    const idx2 = Math.floor(angleAtPointer / segDeg) % Nw;
+    showSpinResult(idx2);
+    canvas.removeEventListener('transitionend', handler);
+  };
+  canvas.addEventListener('transitionend', handler);
+}
+
+/* click handlers */
+document.getElementById('spinBtn').addEventListener('click', ()=>{
+  const idx = Math.floor(Math.random()*Nw);
+  spinToIndex(idx);
+});
+document.getElementById('randomBtn').addEventListener('click', ()=>{
+  const idx = Math.floor(Math.random()*Nw);
+  spinToIndex(idx);
+});
+
+/* show result below wheel and zoom to marker if present */
+function showSpinResult(i){
+  const p = places[i];
+  const siteHtml = p.website && p.website!=='NVT' ? `<a href="${p.website}" target="_blank">${p.website}</a>` : 'NVT';
+  document.getElementById('spinResult').innerHTML = `<div style="font-weight:800">${p.name}</div>
+    <div style="color:var(--muted);margin-top:6px">${p.addr}<br>${siteHtml}</div>
+    <div style="margin-top:8px;color:var(--muted)">${p.desc}</div>`;
+  const found = markers.find(m => m.p.name === p.name);
+  if(found){ map.setView([found.lat,found.lon],15); found.marker.openPopup(); }
+}
+
+/* fit all button */
+document.getElementById('fitBtn').addEventListener('click', ()=>{ if(markers.length) map.fitBounds(markers.map(m=>[m.lat,m.lon]),{padding:[40,40]}); });
+
+/* redraw wheel if window resizes (keeps crispness) */
+window.addEventListener('resize', ()=>{ drawWheel(0); });
+
+</script>
+</body>
+</html>
